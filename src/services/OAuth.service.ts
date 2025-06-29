@@ -89,3 +89,59 @@ export async function exchangeAuthorizationCode(
     done(err as Error)
   }
 }
+
+// 🔄 Troca de refresh token por novo access token
+export async function exchangeRefreshToken(
+  client: any,
+  refreshToken: string,
+  scope: string,
+  done: (err: Error | null, accessToken?: string, refreshToken?: string, params?: any) => void
+): Promise<void> {
+  try {
+    const storedToken = await prisma.refresh_token.findUnique({
+      where: { token: refreshToken },
+    })
+
+    if (!storedToken ||
+        storedToken.client_id !== client.id ||
+        storedToken.expires_at < new Date()) {
+      return done(new Error('Invalid refresh token'))
+    }
+
+    const newAccessToken = crypto.randomBytes(32).toString('hex')
+    const newRefreshToken = crypto.randomBytes(32).toString('hex')
+
+    const accessExpiresAt = new Date(Date.now() + 3600 * 1000) // 1 hora
+    const refreshExpiresAt = new Date(Date.now() + 86400 * 1000) // 24 horas
+
+    await prisma.access_token.create({
+      data: {
+        token: newAccessToken,
+        client_id: storedToken.client_id,
+        user_id: storedToken.user_id,
+        scope: storedToken.scope,
+        expires_at: accessExpiresAt
+      }
+    })
+
+    await prisma.refresh_token.delete({ where: { token: refreshToken } })
+
+    await prisma.refresh_token.create({
+      data: {
+        token: newRefreshToken,
+        client_id: storedToken.client_id,
+        user_id: storedToken.user_id,
+        scope: storedToken.scope,
+        expires_at: refreshExpiresAt
+      }
+    })
+
+    done(null, newAccessToken, newRefreshToken, {
+      token_type: 'Bearer',
+      expires_in: 3600
+    })
+  } catch (err) {
+    done(err as Error)
+  }
+}
+

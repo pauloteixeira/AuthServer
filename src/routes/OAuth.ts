@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express'
 import oauth2orize, { OAuth2Server } from 'oauth2orize'
+import * as exchange from 'oauth2orize-exchange'
 import passport from 'passport'
-import { generateAuthorizationCode, exchangeAuthorizationCode } from '../services/OAuth.service'
+import { generateAuthorizationCode, exchangeAuthorizationCode, exchangeRefreshToken } from '../services/OAuth.service'
 import { PrismaClient, oauth_client } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -14,6 +15,8 @@ server.grant(oauth2orize.grant.code(generateAuthorizationCode))
 
 // Exchange: Troca código por access token
 server.exchange(oauth2orize.exchange.code(exchangeAuthorizationCode))
+
+server.exchange(oauth2orize.exchange.refreshToken(exchangeRefreshToken))
 
 export const oauthRouter = express.Router()
 
